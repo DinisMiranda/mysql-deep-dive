@@ -1,0 +1,25 @@
+{
+    "python.defaultInterpreterPath": "${workspaceFolder}/.venv/bin/python",
+    "python.terminal.activateEnvironment": true,
+    "sqltools.connections": [
+        {
+            "name": "ecommerce (docker)",
+            "driver": "MySQL",
+            "server": "localhost",
+            "port": 3308,
+            "database": "ecommerce",
+            "username": "root",
+            "password": "mysql_study"
+        },
+        {
+            "name": "warehouse (docker)",
+            "driver": "MySQL",
+            "server": "localhost",
+            "port": 3308,
+            "database": "warehouse",
+            "username": "root",
+            "password": "mysql_study"
+        }
+    ],
+    "sqltools.useNodeRuntime": true
+}

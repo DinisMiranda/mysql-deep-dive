@@ -1,0 +1,20 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Run ETL pipeline",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/06-etl/etl_pipeline.py",
+            "cwd": "${workspaceFolder}/06-etl",
+            "envFile": "${workspaceFolder}/.env",
+            "env": {
+                "DB_HOST": "127.0.0.1",
+                "DB_PORT": "3308",
+                "DB_USER": "root"
+            },
+            "console": "integratedTerminal",
+            "python": "${workspaceFolder}/.venv/bin/python"
+        }
+    ]
+}

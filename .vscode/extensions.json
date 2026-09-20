@@ -1,0 +1,7 @@
+{
+    "recommendations": [
+        "mtxr.sqltools",
+        "mtxr.sqltools-driver-mysql",
+        "ms-python.python"
+    ]
+}
