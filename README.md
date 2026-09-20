@@ -1,8 +1,75 @@
 # MySQL Deep Dive
 
-A self-contained curriculum for studying MySQL, from basics through building an
-ETL pipeline. Everything runs locally against a throwaway MySQL instance in
-Docker, seeded with a small e-commerce dataset you'll use throughout.
+<p align="center">
+  <img src="https://github.com/DinisMiranda/mysql-deep-dive/actions/workflows/sql-validation.yml/badge.svg" alt="SQL Validation" />
+  <img src="https://img.shields.io/badge/MySQL-8.0%2B-orange" alt="MySQL 8.0+" />
+  <img src="https://img.shields.io/badge/Python-3.11%2B-blue" alt="Python 3.11+" />
+  <img src="https://img.shields.io/badge/License-MIT-green" alt="License: MIT" />
+</p>
+
+A self-contained curriculum for studying MySQL, from basics through building a
+real incremental ETL pipeline. Everything runs against a seeded, disposable
+MySQL instance in Docker — no answer keys, just a live database to query.
+
+## Repo Snapshot
+
+- **7 modules**, `01-basics` through `07-administration`, each with a
+  `README.md` (concepts) and an `exercises.sql` (practice against the live DB)
+- **Seeded e-commerce dataset**: 5 categories, 20 products, 15 customers,
+  55 orders, 67 order line items
+- **A tested, idempotent ETL pipeline** (`06-etl/etl_pipeline.py`) loading the
+  OLTP schema into a star-schema `warehouse`, with watermark-based
+  incremental loading
+- **Docker Compose** (MySQL 8 + Adminer) and **Cursor/VS Code** config
+  (SQLTools connections, Python venv, ETL debug launch)
+- **CI**: every push spins up MySQL, loads the schema + seed data, and runs
+  the ETL pipeline end-to-end (including an idempotency check)
+
+## Schema (`ecommerce`)
+
+```mermaid
+erDiagram
+    CATEGORIES ||--o{ PRODUCTS : contains
+    PRODUCTS ||--o{ ORDER_ITEMS : "ordered as"
+    CUSTOMERS ||--o{ ORDERS : places
+    ORDERS ||--o{ ORDER_ITEMS : contains
+
+    CATEGORIES {
+        int category_id PK
+        varchar name
+    }
+    PRODUCTS {
+        int product_id PK
+        int category_id FK
+        varchar sku
+        varchar name
+        decimal unit_price
+    }
+    CUSTOMERS {
+        int customer_id PK
+        varchar first_name
+        varchar last_name
+        varchar email
+        varchar country
+    }
+    ORDERS {
+        int order_id PK
+        int customer_id FK
+        enum status
+        datetime ordered_at
+    }
+    ORDER_ITEMS {
+        int order_item_id PK
+        int order_id FK
+        int product_id FK
+        int quantity
+        decimal unit_price
+    }
+```
+
+`06-etl` builds a second schema, `warehouse` (`fact_sales` +
+`dim_date`/`dim_customer`/`dim_product`), fed from this one — see its README
+for that diagram.
 
 ## Setup
 
@@ -54,7 +121,7 @@ Open this folder as its own workspace (not the whole `Reaper` tree) so the
 If you change `MYSQL_ROOT_PASSWORD` in `.env`, update the matching
 `password` fields in `.vscode/settings.json` too — they're not linked.
 
-## How to use this
+## Modules
 
 Each folder is a module with a `README.md` (concepts + examples) and often an
 `exercises.sql` (do these against the running `ecommerce` database — write
@@ -71,13 +138,15 @@ answer key). Go in order; later modules assume earlier ones.
 | [06-etl](06-etl/README.md) | Building a real extract-transform-load pipeline into a star-schema warehouse |
 | [07-administration](07-administration/README.md) | Backup/restore, users & privileges |
 
-## The dataset
+## CI
 
-`ecommerce` (OLTP, normalized):
-- `categories`, `products`
-- `customers`
-- `orders`, `order_items`
+`.github/workflows/sql-validation.yml` runs on every push: it starts a real
+MySQL 8 service container, loads `data/01_schema.sql` and `data/02_seed.sql`,
+loads `06-etl/warehouse_schema.sql`, runs the ETL pipeline, verifies
+`warehouse.fact_sales` actually got populated, then runs the pipeline a
+second time and asserts it's a no-op — a regression test for the
+idempotency guarantee described in `06-etl/README.md`.
 
-By module 06 you'll build a second database, `warehouse`, with a star schema
-(`fact_sales` + `dim_date`/`dim_customer`/`dim_product`) fed by an ETL script
-that reads from `ecommerce`.
+## License
+
+[MIT](LICENSE)

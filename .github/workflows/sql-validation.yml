@@ -1,0 +1,81 @@
+name: SQL Validation
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: mysql_study
+          MYSQL_DATABASE: ecommerce
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h localhost -u root -pmysql_study"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Load OLTP schema + seed data
+        run: |
+          mysql -h 127.0.0.1 -u root -pmysql_study ecommerce < data/01_schema.sql
+          mysql -h 127.0.0.1 -u root -pmysql_study ecommerce < data/02_seed.sql
+
+      - name: Load warehouse (star schema) DDL
+        run: mysql -h 127.0.0.1 -u root -pmysql_study < 06-etl/warehouse_schema.sql
+
+      - name: Sanity-check seed row counts
+        run: |
+          mysql -h 127.0.0.1 -u root -pmysql_study ecommerce -e "
+            SELECT
+              (SELECT COUNT(*) FROM categories)  AS categories,
+              (SELECT COUNT(*) FROM products)    AS products,
+              (SELECT COUNT(*) FROM customers)   AS customers,
+              (SELECT COUNT(*) FROM orders)      AS orders,
+              (SELECT COUNT(*) FROM order_items) AS order_items;
+          "
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install ETL dependencies
+        run: pip install -r 06-etl/requirements.txt
+
+      - name: Run ETL pipeline (initial load)
+        working-directory: 06-etl
+        env:
+          DB_HOST: 127.0.0.1
+          DB_PORT: "3306"
+          DB_USER: root
+          MYSQL_ROOT_PASSWORD: mysql_study
+        run: python etl_pipeline.py
+
+      - name: Verify warehouse fact table populated
+        run: |
+          count=$(mysql -h 127.0.0.1 -u root -pmysql_study -N -e "SELECT COUNT(*) FROM warehouse.fact_sales;")
+          echo "fact_sales rows: $count"
+          [ "$count" -gt 0 ] || { echo "Expected fact_sales to be populated"; exit 1; }
+
+      - name: Run ETL pipeline again (must be an idempotent no-op)
+        working-directory: 06-etl
+        env:
+          DB_HOST: 127.0.0.1
+          DB_PORT: "3306"
+          DB_USER: root
+          MYSQL_ROOT_PASSWORD: mysql_study
+        run: |
+          output=$(python etl_pipeline.py)
+          echo "$output"
+          echo "$output" | grep -q "nothing new to load" || { echo "Expected the second run to be a no-op"; exit 1; }

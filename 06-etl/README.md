@@ -17,14 +17,47 @@ tables (`dim_date`, `dim_customer`, `dim_product`) that describe the "who,
 what, when" in denormalized, query-friendly form. Analytical queries become
 one join per dimension you care about, with no OLTP write traffic in the way.
 
-```
-        dim_date          dim_customer
-            \                 /
-             \               /
-              fact_sales (quantity, unit_price, revenue)
-             /               \
-            /                 \
-      dim_product         (order_id, order_item_id)
+```mermaid
+erDiagram
+    DIM_DATE ||--o{ FACT_SALES : "dated by"
+    DIM_CUSTOMER ||--o{ FACT_SALES : "bought by"
+    DIM_PRODUCT ||--o{ FACT_SALES : "sold as"
+
+    DIM_DATE {
+        int date_key PK
+        date full_date
+        smallint year
+        tinyint quarter
+        tinyint month
+        varchar month_name
+        varchar day_of_week
+        boolean is_weekend
+    }
+    DIM_CUSTOMER {
+        int customer_key PK
+        varchar first_name
+        varchar last_name
+        varchar email
+        varchar country
+    }
+    DIM_PRODUCT {
+        int product_key PK
+        varchar sku
+        varchar name
+        varchar category_name
+        decimal current_price
+    }
+    FACT_SALES {
+        bigint sale_key PK
+        int order_item_id
+        int order_id
+        int date_key FK
+        int customer_key FK
+        int product_key FK
+        smallint quantity
+        decimal unit_price
+        decimal revenue
+    }
 ```
 
 ## ETL, piece by piece
